@@ -16,6 +16,7 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#define FASTLED_ALLOW_INTERRUPTS 0
 #include "FastLED.h"
 FASTLED_USING_NAMESPACE
 
@@ -28,6 +29,7 @@ extern "C" {
 #include <FS.h>
 #include <EEPROM.h>
 #include <IRremoteESP8266.h>
+#include <IRrecv.h>
 #include "GradientPalettes.h"
 
 #define RECV_PIN 12
@@ -46,13 +48,14 @@ const char* password = "";
 
 ESP8266WebServer server(80);
 
-#define DATA_PIN      D8     // for Huzzah: Pins w/o special function:  #4, #5, #12, #13, #14; // #16 does not work :(
+#define STA_HOSTNAME "candela-dev"
+#define DATA_PIN      3     // for Huzzah: Pins w/o special function:  #4, #5, #12, #13, #14; // #16 does not work :(
 #define LED_TYPE      WS2812
 #define COLOR_ORDER   GRB
-#define NUM_LEDS      24
+#define NUM_LEDS      12
 
 #define MILLI_AMPS         2000     // IMPORTANT: set here the max milli-Amps of your power supply 5V 2A = 2000
-#define FRAMES_PER_SECOND  120 // here you can control the speed. With the Access Point / Web Server the animations run a bit slower.
+#define FRAMES_PER_SECOND  60 // here you can control the speed. With the Access Point / Web Server the animations run a bit slower.
 
 CRGB leds[NUM_LEDS];
 
@@ -80,6 +83,7 @@ extern const uint8_t gGradientPaletteCount;
 // Current palette number from the 'playlist' of color palettes
 uint8_t gCurrentPaletteNumber = 0;
 
+CRGBPalette16 CandleColors_p;
 CRGBPalette16 gCurrentPalette( CRGB::Black);
 CRGBPalette16 gTargetPalette( gGradientPalettes[0] );
 
@@ -98,6 +102,7 @@ CRGB solidColor = CRGB::Blue;
 uint8_t power = 1;
 
 void setup(void) {
+  CandleColors_p = CandleColors_gp; // operator override fun
   Serial.begin(115200);
   delay(100);
   Serial.setDebugOutput(true);
@@ -115,7 +120,7 @@ void setup(void) {
 
   FastLED.setBrightness(brightness);
 
-  irReceiver.enableIRIn(); // Start the receiver
+  //irReceiver.enableIRIn(); // Start the receiver
 
   Serial.println();
   Serial.print( F("Heap: ") ); Serial.println(system_get_free_heap_size());
@@ -142,7 +147,7 @@ void setup(void) {
   if (apMode)
   {
     WiFi.mode(WIFI_AP);
-
+    WiFi.hostname(STA_HOSTNAME);
     // Do a little work to get a unique-ish name. Append the
     // last two bytes of the MAC (HEX'd) to "Thing-":
     uint8_t mac[WL_MAC_ADDR_LENGTH];
@@ -282,6 +287,7 @@ typedef PatternAndName PatternAndNameList[];
 
 // List of patterns to cycle through.  Each is defined as a separate function below.
 PatternAndNameList patterns = {
+  { candle, "Candle" },
   { colorwaves, "Color Waves" },
   { palettetest, "Palette Test" },
   { pride, "Pride" },
@@ -303,6 +309,7 @@ typedef struct {
 typedef PaletteAndName PaletteAndNameList[];
 
 const CRGBPalette16 palettes[] = {
+  CandleColors_p,
   RainbowColors_p,
   RainbowStripeColors_p,
   CloudColors_p,
@@ -316,6 +323,7 @@ const CRGBPalette16 palettes[] = {
 const uint8_t paletteCount = ARRAY_SIZE(palettes);
 
 const String paletteNames[paletteCount] = {
+  "Candle",
   "Rainbow",
   "Rainbow Stripe",
   "Cloud",
@@ -332,7 +340,7 @@ void loop(void) {
 
   server.handleClient();
 
-  handleIrInput();
+  // handleIrInput();
 
   if (power == 0) {
     fill_solid(leds, NUM_LEDS, CRGB::Black);
@@ -974,4 +982,37 @@ void palettetest()
   startindex--;
   fill_palette( leds, NUM_LEDS, startindex, (256 / NUM_LEDS) + 1, gCurrentPalette, 255, LINEARBLEND);
 }
+
+// lifelike candle effect
+void candle()
+{
+  static float vphi = 0;
+  static int vd;
+
+  vphi += inoise8_raw(millis()) / 700.1f;
+  vphi += inoise8_raw(millis()*2) / 1200.1f;
+  
+  vd = scale8(inoise8(millis()/16),210)+45;
+  vd += scale8(inoise8(millis()/48),45);
+  //Serial.println(vd);
+  setBrightness(vd);
+  
+  for (uint16_t i = 0; i < NUM_LEDS; i++){
+
+    uint8_t hue8 = 80;
+    uint8_t bri8 = (sin(vphi + (( (2*PI) / NUM_LEDS) * i) ) + 1) * 127;
+    uint8_t flameheat = bri8;
+    hue8 = bri8;
+    
+//    Serial.print("/");Serial.print(i);Serial.print(":");Serial.print(hue8);Serial.print("-");Serial.print(bri8);
+    CRGBPalette16 CandleColors_p = CandleColors_gp;
+    CRGB newcolor = /*HeatColor(flameheat); */ColorFromPalette(CandleColors_p, scale8(hue8,255));
+
+//    Serial.print("R");Serial.print(newcolor.r);Serial.print("G");Serial.print(newcolor.g);Serial.print("B");Serial.print(newcolor.b);
+    leds[i] = newcolor;
+    //nblend(leds[i], newcolor, 128);
+  }
+  //Serial.println();  
+}
+
 

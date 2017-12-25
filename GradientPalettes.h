@@ -465,6 +465,10 @@ DEFINE_GRADIENT_PALETTE( Blue_Cyan_Yellow_gp ) {
   191,  42,255, 45,
   255, 255,255,  0};
 
+DEFINE_GRADIENT_PALETTE( CandleColors_gp ) {
+      0,  51, 41, 1,
+    180, 255, 245, 48,
+    255, 255, 142, 4};
 
 // Single array of defined cpt-city color palettes.
 // This will let us programmatically choose one based on

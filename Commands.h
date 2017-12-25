@@ -184,8 +184,8 @@ unsigned long decodeIRCode() {
   if (irReceiver.decode(&results)) {
     delay(20);
 
-    if (results.value != 0)
-      Serial.println(results.value);
+    //if (results.value != 0)
+      //FIXME Serial.println(results.value);
 
     // Prepare to receive the next IR code
     irReceiver.resume();
